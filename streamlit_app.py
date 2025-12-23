@@ -1,79 +1,83 @@
 import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
-import pandas_ta as ta # لحساب المؤشرات الفنية
 
-st.set_page_config(page_title="محلل تداول الذكي", layout="wide")
+# 1. إعداد الصفحة لتكون بعرض كامل (Wide Layout)
+st.set_page_config(page_title="محلل تداول الاحترافي", layout="wide")
 
 st.markdown("""
     <style>
-    .report-full { width: 100%; background: #ffffff; padding: 30px; border-radius: 15px; border: 1px solid #e0e0e0; border-top: 8px solid #00a651; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-    .stButton>button { height: 3.5em; border-radius: 8px; font-weight: bold; background-color: #f0f2f6; }
+    .full-width-report { width: 100%; background: #ffffff; padding: 30px; border-radius: 15px; border-right: 10px solid #0056b3; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 20px; }
+    .stButton>button { width: 100%; height: 3.5em; font-weight: bold; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 نظام تحليل الأسهم السعودية (أرقام & تداول)")
+st.title("🏦 رادار الأسهم السعودية الذكي (تداول & أرقام)")
+st.write("بحث مباشر في المصادر المحلية وتحليل فني متكامل")
 
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
 
 if api_key:
-    genai.configure(api_key=api_key)
-    # تفعيل أداة البحث google_search كما طلبت الصورة الأخيرة
-    model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash', # الإصدار الأحدث والأذكى لعام 2025
-        tools=[{"google_search": {}}] 
-    )
+    try:
+        genai.configure(api_key=api_key)
+        # تفعيل أداة البحث الصحيحة لعام 2025
+        model = genai.GenerativeModel(
+            model_name='gemini-2.0-flash', 
+            tools=[{"google_search": {}}] 
+        )
 
-    stocks = {
-        "أرامكو": "2222.SR",
-        "اسمنت القصيم": "3020.SR",
-        "مصرف الإنماء": "1150.SR",
-        "اس تي سي": "7010.SR"
-    }
+        stocks = {
+            "أرامكو": "2222.SR",
+            "اسمنت القصيم": "3020.SR",
+            "مصرف الإنماء": "1150.SR",
+            "اس تي سي": "7010.SR"
+        }
 
-    cols = st.columns(4)
-    for i, (name, symbol) in enumerate(stocks.items()):
-        if cols[i].button(f"🔎 تحليل {name}", key=symbol):
-            st.session_state.active = (name, symbol)
+        # عرض الأزرار بشكل عرضي
+        cols = st.columns(4)
+        for i, (name, symbol) in enumerate(stocks.items()):
+            if cols[i].button(f"🔍 تحليل {name}", key=symbol):
+                st.session_state.selected = (name, symbol)
 
-    if 'active' in st.session_state:
-        name, symbol = st.session_state.active
-        with st.spinner(f"جاري البحث في أرقام وتداول عن أحدث أخبار {name}..."):
-            # 1. جلب بيانات فنية متقدمة (لمنع اعتذار الموديل)
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period="3mo")
+        # منطقة التحليل بعرض الصفحة كاملة (تحت الأزرار)
+        if 'selected' in st.session_state:
+            name, symbol = st.session_state.selected
             
-            # حساب مؤشرات (RSI والمتوسطات)
-            df['RSI'] = ta.rsi(df['Close'], length=14)
-            df['SMA_20'] = ta.sma(df['Close'], length=20)
-            
-            current_price = df['Close'].iloc[-1]
-            last_rsi = df['RSI'].iloc[-1]
-            last_volume = df['Volume'].iloc[-1]
-
-            # 2. الأمر الصارم للبحث في المواقع السعودية
-            prompt = f"""
-            أنت محلل مالي في السوق السعودي. السهم: {name} ({symbol}). السعر الحالي: {current_price:.2f}.
-            المؤشرات الفنية الحالية: RSI هو {last_rsi:.2f}، وحجم التداول الأخير هو {last_volume}.
-            
-            المطلوب منك الآن وبشكل إلزامي:
-            1. ابحث باستخدام جوجل في موقع (أرقام Argaam) وموقع (تداول Tadawul) عن آخر إعلانات وأخبار الشركة لليوم وأمس.
-            2. لخص أهم خبر وجدته واشرح تأثيره المباشر على السعر.
-            3. قدم تحليلاً فنياً يدمج بين (السعر، RSI، والأخبار).
-            4. التوصية: هل السعر الحالي فرصة دخول؟ وما هي الأهداف القادمة؟
-            
-            اجعل التقرير مرتباً جداً بعناوين عريضة.
-            """
-            
-            try:
+            with st.spinner(f"جاري جلب بيانات {name} والبحث في أرقام وتداول..."):
+                ticker = yf.Ticker(symbol)
+                # جلب بيانات شهر كامل ليعرف الموديل حركة السهم (يمنع الاعتذار)
+                df = ticker.history(period="1mo")
+                current_price = df['Close'].iloc[-1]
+                avg_price = df['Close'].mean()
+                volume = df['Volume'].iloc[-1]
+                
+                # أمر البحث الصارم
+                prompt = f"""
+                مهم جداً: استخدم أداة البحث للوصول لموقعي (أرقام Argaam) و (تداول Tadawul) حصراً.
+                ابحث عن آخر أخبار سهم {name} ({symbol}) لليوم وأمس.
+                
+                بناءً على الأخبار الحقيقية التي ستجدها وبيانات السهم (السعر الحالي: {current_price:.2f}، المتوسط: {avg_price:.2f}، الحجم: {volume}):
+                1. ما هو الخبر المحلي الجديد؟ (اذكر المصدر والوقت).
+                2. شرح تأثير الخبر (إيجابي أم سلبي للنمو؟).
+                3. تحليل فني: هل السهم في منطقة شراء؟ وما هي الأهداف القادمة؟
+                
+                اجعل التقرير مرتباً جداً بعناوين عريضة وواضحة.
+                """
+                
                 response = model.generate_content(prompt)
                 
-                # 3. عرض التقرير في مساحة عريضة
-                st.markdown(f'<div class="report-full">', unsafe_allow_html=True)
-                st.subheader(f"📝 التقرير الشامل لسهم {name}")
-                st.write(response.text)
-                st.markdown('</div>', unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"تنبيه: {str(e)}")
+                # عرض التقرير في حاوية عريضة بالأسفل
+                st.markdown(f"""
+                <div class="full-width-report">
+                    <h2 style='color:#0056b3;'>📝 التقرير التحليلي الكامل لسهم {name}</h2>
+                    <hr>
+                    <div style='font-size: 1.1em; line-height: 1.8;'>
+                        {response.text}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+    except Exception as e:
+        st.error(f"حدث خطأ: {e}")
 else:
-    st.info("💡 يرجى إدخال مفتاح الـ API لتفعيل ميزة البحث في أرقام وتداول.")
+    st.info("💡 بانتظار إدخال مفتاح API في الشريط الجانبي لتفعيل البحث الذكي.")
