@@ -1,6 +1,5 @@
 streamlit
 yfinance
-google-generativeai
-streamlit
+google-generativeai>=0.8.3
 pandas
 pandas_ta
