@@ -14,7 +14,7 @@ if api_key:
     try:
         genai.configure(api_key=api_key)
         # تم تحديث اسم الموديل هنا إلى الإصدار الأحدث والأسرع
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         stocks = {
             "أرامكو": "2222.SR",
