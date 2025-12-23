@@ -2,30 +2,26 @@ import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
 
-# إعداد الصفحة لتكون بعرض كامل
-st.set_page_config(page_title="رادار الأسهم السعودية", layout="wide")
+# 1. إعداد الصفحة لتكون بعرض كامل ومريح
+st.set_page_config(page_title="رادار تداول الذكي", layout="wide")
 
-# تصميم الواجهة للعرض العريض
 st.markdown("""
     <style>
-    .report-full { width: 100%; background: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #ddd; border-top: 6px solid #1a73e8; margin-top: 20px; }
-    .stButton>button { height: 3.5em; border-radius: 8px; font-weight: bold; }
+    .report-box { width: 100%; background-color: #ffffff; padding: 25px; border-radius: 15px; border-right: 10px solid #28a745; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 20px; }
+    .stButton>button { height: 3.5em; font-weight: bold; font-size: 16px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🚀 نظام التحليل الذكي للأسهم (تداول & أرقام)")
+st.title("🏦 منصة تحليل الأسهم السعودية v3 (أخبار + تحليل)")
+st.write("الكود يجلب الأخبار المحلية والعالمية ويرسلها لنموذج Gemini 2.5 للتحليل")
 
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
+# 2. إعداد مفتاح API في الجانب
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
 
 if api_key:
     genai.configure(api_key=api_key)
-    
-    # تصحيح تعريف أداة البحث (Google Search Tool)
-    # نستخدم الموديل المستقر المحدث لعام 2025
-    model = genai.GenerativeModel(
-        model_name='gemini-2.5-flash',
-        tools=[{"google_search": {}}] # هذا هو التعريف الصحيح للأداة
-    )
+    # استخدام الإصدار الأحدث gemini-2.5-flash الذي طلبت
+    model = genai.GenerativeModel('gemini-2.5-flash')
 
     stocks = {
         "أرامكو": "2222.SR",
@@ -34,37 +30,60 @@ if api_key:
         "اس تي سي": "7010.SR"
     }
 
-    # الأزرار في صف واحد
+    # 3. عرض الأزرار بشكل عرضي (4 أعمدة)
     cols = st.columns(4)
     for i, (name, symbol) in enumerate(stocks.items()):
-        if cols[i].button(f"🔎 تحليل {name}", key=symbol):
-            st.session_state.target = (name, symbol)
+        if cols[i].button(f"🔍 تحليل {name}", key=symbol):
+            st.session_state.active_stock = (name, symbol)
 
-    # عرض التقرير في مساحة عريضة بالأسفل
-    if 'target' in st.session_state:
-        name, symbol = st.session_state.target
-        with st.spinner(f"جاري جلب أحدث أخبار {name} من الإنترنت وتحليلها..."):
+    # 4. منطقة التحليل (تظهر بعرض الصفحة كاملة بالأسفل)
+    if 'active_stock' in st.session_state:
+        name, symbol = st.session_state.active_stock
+        
+        with st.spinner(f"جاري جلب أخبار {name} وتحليلها..."):
+            # أ- جلب البيانات السعرية برمجياً
             ticker = yf.Ticker(symbol)
-            price = ticker.history(period="1d")['Close'].iloc[-1]
+            current_price = ticker.history(period="1d")['Close'].iloc[-1]
             
+            # ب- جلب الأخبار برمجياً (هنا الكود هو من يأتي بالأخبار)
+            raw_news = ticker.news
+            news_summary = ""
+            if raw_news:
+                for n in raw_news[:5]: # نأخذ آخر 5 أخبار
+                    news_summary += f"- العنوان: {n.get('title')} (المصدر: {n.get('publisher')})\n"
+            else:
+                news_summary = "لم يتم العثور على أخبار عاجلة في الساعات الماضية."
+
+            # ج- إرسال البيانات الجاهزة للموديل (Gemini 2.5)
             prompt = f"""
-            ابحث الآن في الإنترنت عن آخر أخبار شركة {name} (الرمز {symbol}) في مواقع تداول وأرقام لليوم وأمس.
-            ثم اكتب لي تقريراً مرتباً كالتالي:
-            1. السعر الحالي: {price:.2f} ريال.
-            2. أهم خبر محلي وجدته (بالتفصيل).
-            3. تحليل الخبر: هل يدعم صعود السهم أم هبوطه؟
-            4. التوصية: أفضل سعر للدخول والهدف المتوقع.
+            أنت محلل مالي خبير. لقد قمت بجلب البيانات التالية لسهم {name} ({symbol}):
+            1- السعر الحالي: {current_price:.2f} ريال.
+            2- آخر الأخبار المتوفرة: 
+            {news_summary}
+            
+            المطلوب منك (بناءً على هذه المعطيات تحديداً):
+            - ترجم ولخص الأخبار إذا كانت بالإنجليزية واشرحها ببساطة.
+            - وضح كيف سيؤثر هذا الخبر على سعر السهم في تداول (إيجابي/سلبي).
+            - حدد "سعر الدخول المثالي" و "الهدف" بناءً على حركة السعر والخبر.
+            رتب إجابتك في نقاط واضحة جداً.
             """
             
             try:
                 response = model.generate_content(prompt)
                 
-                # عرض النتيجة في حاوية عريضة تأخذ مساحة الصفحة كاملة
-                st.markdown(f'<div class="report-full">', unsafe_allow_html=True)
-                st.subheader(f"📝 التقرير الكامل لسهم {name}")
-                st.write(response.text)
-                st.markdown('</div>', unsafe_allow_html=True)
+                # د- عرض التقرير في مساحة عريضة جداً بالأسفل
+                st.markdown(f"""
+                <div class="report-box">
+                    <h2 style='color:#0056b3;'>📝 التقرير التحليلي لـ {name}</h2>
+                    <p style='font-size: 1.2em;'><b>السعر الحالي:</b> {current_price:.2f} ريال</p>
+                    <hr>
+                    <div style='font-size: 1.1em; color: #333;'>
+                        {response.text}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
             except Exception as e:
-                st.error(f"تنبيه: {str(e)}")
+                st.error(f"حدث خطأ في التحليل: {e}")
 else:
-    st.info("💡 بانتظار إدخال مفتاح الـ API للبدء.")
+    st.info("💡 يرجى وضع مفتاح API لتفعيل الرصد والتحليل.")
