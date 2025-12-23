@@ -1,27 +1,28 @@
 import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
+import pandas_ta as ta # لحساب المؤشرات الفنية
 
-# 1. إعداد الصفحة لتكون بعرض كامل ومريح
-st.set_page_config(page_title="رادار تداول الذكي", layout="wide")
+st.set_page_config(page_title="محلل تداول الذكي", layout="wide")
 
 st.markdown("""
     <style>
-    .report-box { width: 100%; background-color: #ffffff; padding: 25px; border-radius: 15px; border-right: 10px solid #28a745; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 20px; }
-    .stButton>button { height: 3.5em; font-weight: bold; font-size: 16px; }
+    .report-full { width: 100%; background: #ffffff; padding: 30px; border-radius: 15px; border: 1px solid #e0e0e0; border-top: 8px solid #00a651; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .stButton>button { height: 3.5em; border-radius: 8px; font-weight: bold; background-color: #f0f2f6; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 منصة تحليل الأسهم السعودية v3 (أخبار + تحليل)")
-st.write("الكود يجلب الأخبار المحلية والعالمية ويرسلها لنموذج Gemini 2.5 للتحليل")
+st.title("🏦 نظام تحليل الأسهم السعودية (أرقام & تداول)")
 
-# 2. إعداد مفتاح API في الجانب
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
 
 if api_key:
     genai.configure(api_key=api_key)
-    # استخدام الإصدار الأحدث gemini-2.5-flash الذي طلبت
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # تفعيل أداة البحث google_search كما طلبت الصورة الأخيرة
+    model = genai.GenerativeModel(
+        model_name='gemini-2.0-flash', # الإصدار الأحدث والأذكى لعام 2025
+        tools=[{"google_search": {}}] 
+    )
 
     stocks = {
         "أرامكو": "2222.SR",
@@ -30,60 +31,49 @@ if api_key:
         "اس تي سي": "7010.SR"
     }
 
-    # 3. عرض الأزرار بشكل عرضي (4 أعمدة)
     cols = st.columns(4)
     for i, (name, symbol) in enumerate(stocks.items()):
-        if cols[i].button(f"🔍 تحليل {name}", key=symbol):
-            st.session_state.active_stock = (name, symbol)
+        if cols[i].button(f"🔎 تحليل {name}", key=symbol):
+            st.session_state.active = (name, symbol)
 
-    # 4. منطقة التحليل (تظهر بعرض الصفحة كاملة بالأسفل)
-    if 'active_stock' in st.session_state:
-        name, symbol = st.session_state.active_stock
-        
-        with st.spinner(f"جاري جلب أخبار {name} وتحليلها..."):
-            # أ- جلب البيانات السعرية برمجياً
+    if 'active' in st.session_state:
+        name, symbol = st.session_state.active
+        with st.spinner(f"جاري البحث في أرقام وتداول عن أحدث أخبار {name}..."):
+            # 1. جلب بيانات فنية متقدمة (لمنع اعتذار الموديل)
             ticker = yf.Ticker(symbol)
-            current_price = ticker.history(period="1d")['Close'].iloc[-1]
+            df = ticker.history(period="3mo")
             
-            # ب- جلب الأخبار برمجياً (هنا الكود هو من يأتي بالأخبار)
-            raw_news = ticker.news
-            news_summary = ""
-            if raw_news:
-                for n in raw_news[:5]: # نأخذ آخر 5 أخبار
-                    news_summary += f"- العنوان: {n.get('title')} (المصدر: {n.get('publisher')})\n"
-            else:
-                news_summary = "لم يتم العثور على أخبار عاجلة في الساعات الماضية."
+            # حساب مؤشرات (RSI والمتوسطات)
+            df['RSI'] = ta.rsi(df['Close'], length=14)
+            df['SMA_20'] = ta.sma(df['Close'], length=20)
+            
+            current_price = df['Close'].iloc[-1]
+            last_rsi = df['RSI'].iloc[-1]
+            last_volume = df['Volume'].iloc[-1]
 
-            # ج- إرسال البيانات الجاهزة للموديل (Gemini 2.5)
+            # 2. الأمر الصارم للبحث في المواقع السعودية
             prompt = f"""
-            أنت محلل مالي خبير. لقد قمت بجلب البيانات التالية لسهم {name} ({symbol}):
-            1- السعر الحالي: {current_price:.2f} ريال.
-            2- آخر الأخبار المتوفرة: 
-            {news_summary}
+            أنت محلل مالي في السوق السعودي. السهم: {name} ({symbol}). السعر الحالي: {current_price:.2f}.
+            المؤشرات الفنية الحالية: RSI هو {last_rsi:.2f}، وحجم التداول الأخير هو {last_volume}.
             
-            المطلوب منك (بناءً على هذه المعطيات تحديداً):
-            - ترجم ولخص الأخبار إذا كانت بالإنجليزية واشرحها ببساطة.
-            - وضح كيف سيؤثر هذا الخبر على سعر السهم في تداول (إيجابي/سلبي).
-            - حدد "سعر الدخول المثالي" و "الهدف" بناءً على حركة السعر والخبر.
-            رتب إجابتك في نقاط واضحة جداً.
+            المطلوب منك الآن وبشكل إلزامي:
+            1. ابحث باستخدام جوجل في موقع (أرقام Argaam) وموقع (تداول Tadawul) عن آخر إعلانات وأخبار الشركة لليوم وأمس.
+            2. لخص أهم خبر وجدته واشرح تأثيره المباشر على السعر.
+            3. قدم تحليلاً فنياً يدمج بين (السعر، RSI، والأخبار).
+            4. التوصية: هل السعر الحالي فرصة دخول؟ وما هي الأهداف القادمة؟
+            
+            اجعل التقرير مرتباً جداً بعناوين عريضة.
             """
             
             try:
                 response = model.generate_content(prompt)
                 
-                # د- عرض التقرير في مساحة عريضة جداً بالأسفل
-                st.markdown(f"""
-                <div class="report-box">
-                    <h2 style='color:#0056b3;'>📝 التقرير التحليلي لـ {name}</h2>
-                    <p style='font-size: 1.2em;'><b>السعر الحالي:</b> {current_price:.2f} ريال</p>
-                    <hr>
-                    <div style='font-size: 1.1em; color: #333;'>
-                        {response.text}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
+                # 3. عرض التقرير في مساحة عريضة
+                st.markdown(f'<div class="report-full">', unsafe_allow_html=True)
+                st.subheader(f"📝 التقرير الشامل لسهم {name}")
+                st.write(response.text)
+                st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e:
-                st.error(f"حدث خطأ في التحليل: {e}")
+                st.error(f"تنبيه: {str(e)}")
 else:
-    st.info("💡 يرجى وضع مفتاح API لتفعيل الرصد والتحليل.")
+    st.info("💡 يرجى إدخال مفتاح الـ API لتفعيل ميزة البحث في أرقام وتداول.")
