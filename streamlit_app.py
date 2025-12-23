@@ -2,27 +2,40 @@ import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
 
-# إعدادات واجهة احترافية متقدمة
-st.set_page_config(page_title="الرادار المالي السعودي v2", layout="wide")
+# إعدادات الصفحة
+st.set_page_config(page_title="مستشارك المالي الذكي", layout="wide")
 
-# تصميم CSS لجعل الواجهة تبدو كمنصة احترافية
+# تصميم الواجهة وتوسيع الحاويات
 st.markdown("""
     <style>
-    .report-card { background-color: #ffffff; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 5px solid #007bff; margin-bottom: 20px; }
-    .news-section { background-color: #f8f9fa; border-right: 4px solid #ffc107; padding: 10px; margin: 10px 0; border-radius: 5px; }
-    .analysis-section { background-color: #e8f5e9; border-right: 4px solid #28a745; padding: 10px; margin: 10px 0; border-radius: 5px; }
-    .entry-price { font-size: 20px; color: #d32f2f; font-weight: bold; }
+    .main { background-color: #f8f9fa; }
+    .report-container { 
+        width: 100%; 
+        background-color: white; 
+        padding: 30px; 
+        border-radius: 15px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        margin-top: 20px;
+        border-right: 8px solid #0056b3;
+    }
+    .stButton>button { width: 100%; height: 3.5em; font-weight: bold; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 منصة تحليل الأسهم السعودية (أرقام & تداول)")
-st.write("تحليل ذكي يعتمد على آخر الأخبار المحلية وتحركات السعر")
+st.title("📊 نظام الرصد والتحليل الذكي للأسهم السعودية")
+st.write("يتم الآن البحث في المصادر المحلية (أرقام، تداول، واس) وتحليلها فوراً")
 
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
 
 if api_key:
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    
+    # تفعيل موديل Gemini مع خاصية البحث في جوجل
+    # ملاحظة: نستخدم gemini-1.5-flash أو gemini-2.0-flash مع تفعيل التصفح
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash',
+        tools=[{"google_search_retrieval": {}}] 
+    )
 
     stocks = {
         "أرامكو": "2222.SR",
@@ -31,44 +44,52 @@ if api_key:
         "اس تي سي": "7010.SR"
     }
 
-    # توزيع الأزرار بشكل عرضي أنيق
+    # إنشاء الأزرار
     cols = st.columns(4)
+    selected_stock = None
+
     for i, (name, symbol) in enumerate(stocks.items()):
-        with cols[i]:
-            if st.button(f"📊 تحليل {name}", key=symbol):
-                with st.spinner(f"جاري البحث في أرقام وتداول عن {name}..."):
-                    # 1. جلب السعر اللحظي
-                    ticker = yf.Ticker(symbol)
-                    hist = ticker.history(period="5d")
-                    current_price = hist['Close'].iloc[-1] if not hist.empty else 0
-                    
-                    # 2. أمر الذكاء الاصطناعي (البحث والتحليل)
-                    prompt = f"""
-                    أنت محلل مالي في السوق السعودي (تداول).
-                    السهم: {name} (الرمز: {symbol}). السعر الحالي: {current_price:.2f} ريال.
-                    المطلوب منك:
-                    1. ابحث عن آخر أخبار هذا السهم في (موقع أرقام، موقع تداول، العربية بيزنس) لليوم وأمس.
-                    2. لخص أهم خبر وجدته (العنوان والمحتوى باختصار).
-                    3. اشرح تأثير هذا الخبر على السهم (إيجابي/سبي/محايد).
-                    4. بناءً على السعر الحالي والأخبار، اقترح "أنسب سعر دخول" و "الهدف المتوقع".
-                    رتب الإجابة بتنسيق Markdown مع عناوين واضحة.
-                    """
-                    
-                    try:
-                        response = model.generate_content(prompt)
-                        
-                        # 3. عرض النتائج بشكل "بطاقة" مرتبة
-                        st.markdown(f"""
-                        <div class="report-card">
-                            <h2 style='color:#004a99;'>📝 تقرير {name}</h2>
-                            <p style='font-size:18px;'><b>السعر الحالي:</b> {current_price:.2f} ريال</p>
-                            <hr>
-                            {response.text}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    except Exception as e:
-                        st.error(f"حدث خطأ أثناء التحليل: {e}")
+        if cols[i].button(f"🔍 تحليل {name}"):
+            st.session_state.selected_stock = (name, symbol)
+
+    # عرض التحليل في المساحة العريضة أسفل الأزرار
+    if 'selected_stock' in st.session_state:
+        name, symbol = st.session_state.selected_stock
+        
+        with st.spinner(f"جاري البحث في الإنترنت وتحليل سهم {name}..."):
+            # جلب السعر الحالي
+            ticker = yf.Ticker(symbol)
+            current_price = ticker.history(period="1d")['Close'].iloc[-1]
+            
+            # أمر الذكاء الاصطناعي مع تفعيل البحث
+            prompt = f"""
+            استخدم ميزة البحث في جوجل للعثور على آخر أخبار سهم {name} (الرمز {symbol}) 
+            في مواقع (أرقام، تداول، العربية نت) لآخر 48 ساعة.
+            ثم قدم لي تقريراً احترافياً باللغة العربية كالتالي:
+            1. السعر الحالي: {current_price:.2f} ريال.
+            2. ملخص لأهم الأخبار المكتشفة وتواريخها.
+            3. شرح مختصر لتأثير الخبر (هل هو إيجابي أم سلبي للنمو؟).
+            4. التوقع الفني: هل السعر الحالي مناسب للدخول؟ وما هو الهدف القريب؟
+            
+            اجعل العرض مرتباً جداً باستخدام النقاط.
+            """
+            
+            try:
+                response = model.generate_content(prompt)
+                
+                # عرض النتيجة في حاوية عريضة (Full Width)
+                st.markdown(f"""
+                <div class="report-container">
+                    <h2 style='color:#0056b3;'>📝 تقرير تحليل سهم {name}</h2>
+                    <hr>
+                    <div style='font-size: 1.1em; line-height: 1.8;'>
+                        {response.text}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الاتصال بالذكاء الاصطناعي: {e}")
 
 else:
-    st.info("💡 يرجى إدخال مفتاح الـ API في القائمة الجانبية لتفعيل المحلل الذكي.")
+    st.info("💡 يرجى وضع مفتاح الـ API في اليسار لتفعيل خاصية البحث والتحليل.")
