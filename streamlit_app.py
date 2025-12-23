@@ -1,31 +1,30 @@
 import streamlit as st
 import yfinance as yf
-import google.generativeai as genai
+from google import genai # المكتبة الجديدة لعام 2025
+import pandas as pd
 
-# 1. إعداد الصفحة لتكون بعرض كامل (Wide Layout)
-st.set_page_config(page_title="محلل تداول الاحترافي", layout="wide")
+# 1. إعداد الصفحة للعرض العريض والاحترافي
+st.set_page_config(page_title="رادار تداول 2026", layout="wide")
 
 st.markdown("""
     <style>
-    .full-width-report { width: 100%; background: #ffffff; padding: 30px; border-radius: 15px; border-right: 10px solid #0056b3; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 20px; }
-    .stButton>button { width: 100%; height: 3.5em; font-weight: bold; border-radius: 10px; }
+    .report-card { width: 100%; background: white; padding: 25px; border-radius: 15px; border-right: 12px solid #00a651; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-top: 20px; }
+    .stButton>button { width: 100%; height: 3.8em; font-weight: bold; border-radius: 12px; transition: 0.3s; }
+    .stButton>button:hover { background-color: #00a651; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 رادار الأسهم السعودية الذكي (تداول & أرقام)")
-st.write("بحث مباشر في المصادر المحلية وتحليل فني متكامل")
+st.title("🏦 منصة تحليل الأسهم السعودية (الجيل الجديد)")
+st.write("تم التحديث للمكتبة الجديدة لضمان دقة البحث في أرقام وتداول")
 
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
+# 2. إعداد المفتاح الجديد
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
 
 if api_key:
     try:
-        genai.configure(api_key=api_key)
-        # تفعيل أداة البحث الصحيحة لعام 2025
-        model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash', 
-            tools=[{"google_search": {}}] 
-        )
-
+        # الربط باستخدام المكتبة الجديدة google-genai
+        client = genai.Client(api_key=api_key)
+        
         stocks = {
             "أرامكو": "2222.SR",
             "اسمنت القصيم": "3020.SR",
@@ -33,51 +32,53 @@ if api_key:
             "اس تي سي": "7010.SR"
         }
 
-        # عرض الأزرار بشكل عرضي
+        # عرض الأزرار بشكل عرضي أنيق
         cols = st.columns(4)
         for i, (name, symbol) in enumerate(stocks.items()):
-            if cols[i].button(f"🔍 تحليل {name}", key=symbol):
-                st.session_state.selected = (name, symbol)
+            if cols[i].button(f"🔎 تحليل {name}", key=symbol):
+                st.session_state.active_stock = (name, symbol)
 
-        # منطقة التحليل بعرض الصفحة كاملة (تحت الأزرار)
-        if 'selected' in st.session_state:
-            name, symbol = st.session_state.selected
+        # منطقة التحليل بعرض الصفحة الكاملة
+        if 'active_stock' in st.session_state:
+            name, symbol = st.session_state.active_stock
             
-            with st.spinner(f"جاري جلب بيانات {name} والبحث في أرقام وتداول..."):
+            with st.spinner(f"جاري البحث والتحليل المتقدم لسهم {name}..."):
+                # جلب البيانات الفنية المباشرة
                 ticker = yf.Ticker(symbol)
-                # جلب بيانات شهر كامل ليعرف الموديل حركة السهم (يمنع الاعتذار)
                 df = ticker.history(period="1mo")
-                current_price = df['Close'].iloc[-1]
-                avg_price = df['Close'].mean()
-                volume = df['Volume'].iloc[-1]
+                curr_p = df['Close'].iloc[-1]
                 
-                # أمر البحث الصارم
+                # استخدام ميزة البحث المباشر في المكتبة الجديدة
                 prompt = f"""
-                مهم جداً: استخدم أداة البحث للوصول لموقعي (أرقام Argaam) و (تداول Tadawul) حصراً.
-                ابحث عن آخر أخبار سهم {name} ({symbol}) لليوم وأمس.
-                
-                بناءً على الأخبار الحقيقية التي ستجدها وبيانات السهم (السعر الحالي: {current_price:.2f}، المتوسط: {avg_price:.2f}، الحجم: {volume}):
-                1. ما هو الخبر المحلي الجديد؟ (اذكر المصدر والوقت).
-                2. شرح تأثير الخبر (إيجابي أم سلبي للنمو؟).
-                3. تحليل فني: هل السهم في منطقة شراء؟ وما هي الأهداف القادمة؟
-                
-                اجعل التقرير مرتباً جداً بعناوين عريضة وواضحة.
+                ابحث في الإنترنت (موقع أرقام وتداول السعودية) عن آخر أخبار {name} ({symbol}) لليوم.
+                بناءً على السعر الحالي {curr_p:.2f} ريال والأخبار المكتشفة:
+                1. ما هو الخبر الأهم والمصدر؟
+                2. كيف سيؤثر الخبر على السهم (إيجابي/سلبي)؟
+                3. التوصية الفنية: سعر الدخول المناسب والهدف.
+                رتب التقرير بشكل احترافي.
                 """
                 
-                response = model.generate_content(prompt)
+                # تنفيذ الطلب باستخدام الموديل الأحدث Gemini 2.0 Flash
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=prompt,
+                    config={
+                        'tools': [{'google_search': {}}] # تفعيل البحث بجوجل
+                    }
+                )
                 
-                # عرض التقرير في حاوية عريضة بالأسفل
+                # عرض النتيجة في حاوية عريضة جداً
                 st.markdown(f"""
-                <div class="full-width-report">
-                    <h2 style='color:#0056b3;'>📝 التقرير التحليلي الكامل لسهم {name}</h2>
+                <div class="report-card">
+                    <h2 style='color:#0056b3;'>📝 التقرير الذكي لسهم {name}</h2>
                     <hr>
-                    <div style='font-size: 1.1em; line-height: 1.8;'>
+                    <div style='font-size: 1.15em; line-height: 1.9;'>
                         {response.text}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
     except Exception as e:
-        st.error(f"حدث خطأ: {e}")
+        st.error(f"حدث خطأ في المكتبة الجديدة: {e}")
 else:
-    st.info("💡 بانتظار إدخال مفتاح API في الشريط الجانبي لتفعيل البحث الذكي.")
+    st.info("💡 يرجى إدخال مفتاح API لتشغيل الرادار المالي.")
