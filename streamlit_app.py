@@ -60,7 +60,7 @@ if api_key:
                 
                 # تنفيذ الطلب باستخدام الموديل الأحدث Gemini 2.0 Flash
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     contents=prompt,
                     config={
                         'tools': [{'google_search': {}}] # تفعيل البحث بجوجل
