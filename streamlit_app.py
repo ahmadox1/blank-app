@@ -23,7 +23,7 @@ if api_key:
     # تصحيح تعريف أداة البحث (Google Search Tool)
     # نستخدم الموديل المستقر المحدث لعام 2025
     model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
+        model_name='gemini-2.5-flash',
         tools=[{"google_search": {}}] # هذا هو التعريف الصحيح للأداة
     )
 
