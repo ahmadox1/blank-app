@@ -2,93 +2,73 @@ import streamlit as st
 import yfinance as yf
 import google.generativeai as genai
 
-# إعدادات واجهة احترافية
-st.set_page_config(page_title="الرادار المالي السعودي", layout="wide")
+# إعدادات واجهة احترافية متقدمة
+st.set_page_config(page_title="الرادار المالي السعودي v2", layout="wide")
+
+# تصميم CSS لجعل الواجهة تبدو كمنصة احترافية
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; }
-    .news-box { padding: 15px; border-radius: 10px; border-left: 5px solid #007bff; background-color: white; margin-bottom: 10px; }
-    .analysis-box { background-color: #e9ecef; padding: 15px; border-radius: 10px; border-right: 5px solid #28a745; }
+    .report-card { background-color: #ffffff; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 5px solid #007bff; margin-bottom: 20px; }
+    .news-section { background-color: #f8f9fa; border-right: 4px solid #ffc107; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .analysis-section { background-color: #e8f5e9; border-right: 4px solid #28a745; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .entry-price { font-size: 20px; color: #d32f2f; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 منصة التحليل الإخباري والفني للأسهم السعودية")
-st.write("---")
+st.title("🏦 منصة تحليل الأسهم السعودية (أرقام & تداول)")
+st.write("تحليل ذكي يعتمد على آخر الأخبار المحلية وتحركات السعر")
 
-api_key = st.sidebar.text_input("أدخل مفتاح Gemini API:", type="password")
+api_key = st.sidebar.text_input("أدخل مفتاح Gemini API الخاص بك:", type="password")
 
 if api_key:
-    try:
-        genai.configure(api_key=api_key)
-        # استخدام الإصدار الأحدث المستقر لعام 2025
-        model = genai.GenerativeModel('gemini-2.5-flash')
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-flash')
 
-        stocks = {
-            "أرامكو": "2222.SR",
-            "اسمنت القصيم": "3020.SR",
-            "مصرف الإنماء": "1150.SR",
-            "اس تي سي": "7010.SR"
-        }
+    stocks = {
+        "أرامكو": "2222.SR",
+        "اسمنت القصيم": "3020.SR",
+        "مصرف الإنماء": "1150.SR",
+        "اس تي سي": "7010.SR"
+    }
 
-        # عرض الأزرار بشكل مرتب
-        cols = st.columns(4)
-        for i, (name, symbol) in enumerate(stocks.items()):
-            with cols[i]:
-                if st.button(f"🔍 تحليل {name}", key=symbol):
-                    with st.spinner(f"جاري معالجة بيانات {name}..."):
-                        stock_obj = yf.Ticker(symbol)
+    # توزيع الأزرار بشكل عرضي أنيق
+    cols = st.columns(4)
+    for i, (name, symbol) in enumerate(stocks.items()):
+        with cols[i]:
+            if st.button(f"📊 تحليل {name}", key=symbol):
+                with st.spinner(f"جاري البحث في أرقام وتداول عن {name}..."):
+                    # 1. جلب السعر اللحظي
+                    ticker = yf.Ticker(symbol)
+                    hist = ticker.history(period="5d")
+                    current_price = hist['Close'].iloc[-1] if not hist.empty else 0
+                    
+                    # 2. أمر الذكاء الاصطناعي (البحث والتحليل)
+                    prompt = f"""
+                    أنت محلل مالي في السوق السعودي (تداول).
+                    السهم: {name} (الرمز: {symbol}). السعر الحالي: {current_price:.2f} ريال.
+                    المطلوب منك:
+                    1. ابحث عن آخر أخبار هذا السهم في (موقع أرقام، موقع تداول، العربية بيزنس) لليوم وأمس.
+                    2. لخص أهم خبر وجدته (العنوان والمحتوى باختصار).
+                    3. اشرح تأثير هذا الخبر على السهم (إيجابي/سبي/محايد).
+                    4. بناءً على السعر الحالي والأخبار، اقترح "أنسب سعر دخول" و "الهدف المتوقع".
+                    رتب الإجابة بتنسيق Markdown مع عناوين واضحة.
+                    """
+                    
+                    try:
+                        response = model.generate_content(prompt)
                         
-                        # جلب السعر مع معالجة الأخطاء
-                        hist = stock_obj.history(period="5d")
-                        if hist.empty:
-                            st.error(f"عذراً، تعذر سحب سعر {name}")
-                            continue
-                        current_price = hist['Close'].iloc[-1]
+                        # 3. عرض النتائج بشكل "بطاقة" مرتبة
+                        st.markdown(f"""
+                        <div class="report-card">
+                            <h2 style='color:#004a99;'>📝 تقرير {name}</h2>
+                            <p style='font-size:18px;'><b>السعر الحالي:</b> {current_price:.2f} ريال</p>
+                            <hr>
+                            {response.text}
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        # جلب الأخبار بشكل آمن لتجنب خطأ الـ title
-                        raw_news = stock_obj.news
-                        
-                        st.markdown(f"### 📊 تقرير سهم {name} ({symbol})")
-                        st.metric("السعر الحالي", f"{current_price:.2f} ريال")
-                        
-                        if not raw_news:
-                            st.info("لا توجد أخبار عالمية حديثة لهذا السهم حالياً.")
-                        else:
-                            for news_item in raw_news[:3]: # سنأخذ أهم 3 أخبار فقط للترتيب
-                                title = news_item.get('title', 'عنوان غير متوفر')
-                                publisher = news_item.get('publisher', 'مصدر مجهول')
-                                
-                                # عرض الخبر بشكل مرتب
-                                st.markdown(f"""
-                                <div class="news-box">
-                                    <strong>الخبر:</strong> {title}<br>
-                                    <small>المصدر: {publisher}</small>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # طلب تحليل الخبر من الذكاء الاصطناعي بشكل مخصص
-                                prompt = f"""
-                                حلل هذا الخبر المتعلق بسهم {name} في السوق السعودي:
-                                الخبر: {title}
-                                السعر الحالي: {current_price:.2f}
-                                المطلوب (بشكل مختصر جداً ومرتب):
-                                1- شرح مبسط للخبر.
-                                2- تأثير الخبر على السعر (إيجابي/سبي/محايد).
-                                3- نصيحة دخول/انتظار بناءً على هذا المعطى.
-                                """
-                                
-                                analysis = model.generate_content(prompt)
-                                
-                                st.markdown(f"""
-                                <div class="analysis-box">
-                                    <strong>💡 تحليل المستشار الذكي:</strong><br>
-                                    {analysis.text}
-                                </div>
-                                """, unsafe_allow_html=True)
-                                st.write("---")
+                    except Exception as e:
+                        st.error(f"حدث خطأ أثناء التحليل: {e}")
 
-    except Exception as e:
-        st.error(f"حدث خطأ في النظام: {e}")
 else:
-    st.warning("⚠️ يرجى إدخال مفتاح الـ API في القائمة الجانبية لتفعيل المحلل.")
+    st.info("💡 يرجى إدخال مفتاح الـ API في القائمة الجانبية لتفعيل المحلل الذكي.")
